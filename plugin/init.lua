@@ -457,6 +457,12 @@ end
      Status Detection (inline)
      ============================================ ]]
 
+-- Live Claude spinners include an elapsed timer; completed summaries do not.
+local live_working_patterns = {
+    '%a+…%s*%(%d+[hms]',
+    '%a+%.%.%.%s*%(%d+[hms]',
+}
+
 local default_patterns = {
     working = {
         'esc to interrupt',
@@ -562,6 +568,12 @@ local function detect_status(pane, agent_type, config)
     local lines = split_lines(clean_text)
     if #lines == 0 then return 'inactive' end
 
+    -- A live spinner is authoritative even when the input prompt stays visible.
+    local recent_text = last_n_lines(lines, 10)
+    if matches_any_status(recent_text, live_working_patterns) then
+        return 'working'
+    end
+
     -- Check last 5 lines for idle indicators
     local start_5 = math.max(1, #lines - 4)
     for i = start_5, #lines do
@@ -581,9 +593,6 @@ local function detect_status(pane, agent_type, config)
     -- Check if last line is empty/whitespace (OpenCode idle state)
     local last_trimmed = lines[#lines]:match('^%s*(.-)%s*$') or ''
     local last_line_empty = (last_trimmed == '')
-
-    -- Check last 10 lines for working/waiting (reuse the single split)
-    local recent_text = last_n_lines(lines, 10)
 
     if matches_any_status(recent_text, patterns.working) then
         return 'working'

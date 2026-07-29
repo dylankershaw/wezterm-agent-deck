@@ -4,6 +4,12 @@ local wezterm = require('wezterm')
 
 local M = {}
 
+-- Live Claude spinners include an elapsed timer; completed summaries do not.
+local live_working_patterns = {
+    '%a+…%s*%(%d+[hms]',
+    '%a+%.%.%.%s*%(%d+[hms]',
+}
+
 -- Default status patterns (used if agent doesn't override)
 local default_patterns = {
     -- Working patterns - agent is actively processing
@@ -210,6 +216,12 @@ function M.detect_status(pane, agent_type, config)
     -- Get patterns for this agent
     local patterns = get_patterns_for_agent(agent_type, config)
 
+    -- A live spinner is authoritative even when the input prompt stays visible.
+    local very_recent = get_last_lines(clean_text, 10)
+    if matches_any(very_recent, live_working_patterns) then
+        return 'working'
+    end
+
     -- Check in priority order: idle > waiting > working
     -- Idle check first - if prompt is ready, agent is idle regardless of scrollback
     -- This prevents false "working" status when agent just started or finished
@@ -237,7 +249,6 @@ function M.detect_status(pane, agent_type, config)
     end
 
     -- Finally check working (only in last 10 lines to avoid stale matches)
-    local very_recent = get_last_lines(clean_text, 10)
     if matches_any(very_recent, patterns.working) then
         return 'working'
     end

@@ -281,6 +281,27 @@ runner:test('status.detect_status prefers idle prompt over stale working', funct
     t.eq(status.detect_status(pane, 'opencode', cfg), 'idle')
 end)
 
+runner:test('status.detect_status recognizes live Claude spinner with visible prompt', function()
+    local status = require('status')
+
+    local pane = {
+        get_lines_as_text = function()
+            return table.concat({
+                'Running 12 shell commands…',
+                '✻ Whirring… (3m 31s · ↓ 3.0k tokens · thinking more with high effort)',
+                '> ',
+            }, '\n')
+        end,
+        get_logical_lines_as_text = function()
+            return ''
+        end,
+    }
+
+    local cfg = { max_lines = 100, agents = { claude = {} } }
+
+    t.eq(status.detect_status(pane, 'claude', cfg), 'working')
+end)
+
 runner:test('status.detect_status treats opencode new session as idle', function()
     local status = require('status')
 
